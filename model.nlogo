@@ -1,6 +1,12 @@
+extensions [
+ py
+]
+
 globals [
   gini-index-reserve
   lorenz-points
+  sugar-predict
+  delay
 ]
 
 turtles-own [
@@ -22,6 +28,8 @@ patches-own [
 ;;
 
 to setup
+  py:setup py:python3    ;; use python3
+  py:run "import random"
   if maximum-sugar-endowment <= minimum-sugar-endowment [
     user-message "Oops: the maximum-sugar-endowment must be larger than the minimum-sugar-endowment"
     stop
@@ -31,6 +39,7 @@ to setup
   setup-patches
   update-lorenz-and-gini
   reset-ticks
+  set delay 1
 end
 
 to turtle-setup ;; turtle procedure
@@ -71,10 +80,13 @@ to go
   if not any? turtles [
     stop
   ]
-  ask patches [
-    patch-growback
-    patch-recolor
+  if delay mod 12 = 0 [
+    set sugar-predict py:runresult "random.choices([1,-1, 0], [0.375, 0.5, 0.125])[0]"  ;; grow or decrease sugar
   ]
+  ask patches [
+      patch-growback
+      patch-recolor
+    ]
   ask turtles [
     turtle-move
     turtle-eat
@@ -86,6 +98,7 @@ to go
     run visualization
   ]
   update-lorenz-and-gini
+  set delay delay + 1
   tick
 end
 
@@ -112,7 +125,8 @@ end
 
 to patch-growback ;; patch procedure
   ;; gradually grow back all of the sugar for the patch
-  set psugar min (list max-psugar (psugar + 1))
+  set psugar min (list max-psugar (psugar + sugar-predict))
+  set psugar max (list 0 psugar)
 end
 
 to update-lorenz-and-gini
@@ -292,7 +306,7 @@ minimum-sugar-endowment
 minimum-sugar-endowment
 0
 200
-5.0
+10.0
 1
 1
 NIL
@@ -344,11 +358,40 @@ maximum-sugar-endowment
 maximum-sugar-endowment
 0
 200
-25.0
+40.0
 1
 1
 NIL
 HORIZONTAL
+
+MONITOR
+945
+15
+1032
+60
+NIL
+sugar-predict
+17
+1
+11
+
+PLOT
+955
+85
+1155
+235
+Sugar average
+Time
+Sugar
+0.0
+10.0
+0.0
+4.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot sum [psugar] of patches / count patches"
 
 @#$#@#$#@
 ## WHAT IS IT?
