@@ -16,6 +16,9 @@ turtles-own [
   vision-points   ;; the points that this turtle can see in relative to it's current position (based on vision)
   age             ;; the current age of this turtle (in ticks)
   max-age         ;; the age at which this turtle will die of natural causes
+  exchanges       ;; the list of lends and debts
+  messages        ;; the list of messages for exchanges
+
 ]
 
 patches-own [
@@ -51,6 +54,8 @@ to turtle-setup ;; turtle procedure
   set max-age random-in-range 60 100
   set age 0
   set vision random-in-range 1 6
+  set exchanges []
+  set messages []
   ;; turtles can look horizontally and vertically up to vision patches
   ;; but cannot look diagonally at all
   set vision-points []
@@ -81,15 +86,16 @@ to go
     stop
   ]
   if delay mod 12 = 0 [
-    set sugar-predict py:runresult "random.choices([1,-1, 0], [0.375, 0.5, 0.125])[0]"  ;; grow or decrease sugar
+    set sugar-predict py:runresult "random.choices([1,-1], [0.431034483, 0.568965517])[0]"  ;; grow or decrease sugar
   ]
   ask patches [
       patch-growback
       patch-recolor
-    ]
+  ]
   ask turtles [
     turtle-move
     turtle-eat
+    turtle-exchange
     set age (age + 1)
     if sugar <= 0 or age > max-age [
       hatch 1 [ turtle-setup ]
@@ -116,6 +122,55 @@ to turtle-eat ;; turtle procedure
   ;; metabolize some sugar, and eat all the sugar on the current patch
   set sugar (sugar - metabolism + psugar)
   set psugar 0
+end
+
+to turtle-exchange ;; turtle procedure
+  ;; run the exchange algorithm
+  let tempm []
+  let id [who] of self
+
+  ifelse sugar > metabolism * 5 [
+    let lending sugar - (metabolism * 5)
+
+    ;; offer lending
+    ifelse length messages = 0 [
+      ;; send offer
+
+      ;; filter the best options to propouse
+      foreach (list turtles) [
+        ;;t -> if (metabolism * 5) - (sugar + lending) <= 3 [if length tempm <= 5 [set tempm fput t tempm]]
+      ]
+
+      ;; send offers
+      foreach tempm [
+        t -> ask t [set messages fput (list "L" lending id ticks "O") messages]
+      ]
+    ]
+    [
+      ;; review messages
+
+      ;; reject those that are either: debt lending offer, is more than 2 ticks old or has already been rejected
+      foreach messages [
+        m -> ifelse position 0 m = "D" and position 2 m <= 2 and position 3 m != "R" [set tempm fput m tempm] [ask turtle (position 1 m) [set messages fput (list "L" 0 id ticks "R") messages]]
+      ]
+
+      ;; answer if ok or send proposals
+
+    ]
+  ]
+  [
+    ;; take debt
+    ifelse length messages = 0 [
+      ;; send offer
+    ]
+    [
+      ;; review messages
+      foreach messages [
+
+      ]
+    ]
+  ]
+
 end
 
 to patch-recolor ;; patch procedure
@@ -376,9 +431,9 @@ sugar-predict
 11
 
 PLOT
-955
+945
 85
-1155
+1145
 235
 Sugar average
 Time
