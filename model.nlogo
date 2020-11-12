@@ -6,7 +6,8 @@ globals [
   gini-index-reserve
   lorenz-points
   sugar-predict
-  delay
+  delay               ;; variable to delay sugar-predict change
+  inbox               ;; communal mailbox for exchange proposals
 ]
 
 turtles-own [
@@ -17,8 +18,6 @@ turtles-own [
   age             ;; the current age of this turtle (in ticks)
   max-age         ;; the age at which this turtle will die of natural causes
   exchanges       ;; the list of lends and debts
-  messages        ;; the list of messages for exchanges
-
 ]
 
 patches-own [
@@ -31,7 +30,7 @@ patches-own [
 ;;
 
 to setup
-  py:setup py:python3    ;; use python3
+  py:setup py:python3                                   ;; use python3
   py:run "import random"
   if maximum-sugar-endowment <= minimum-sugar-endowment [
     user-message "Oops: the maximum-sugar-endowment must be larger than the minimum-sugar-endowment"
@@ -43,6 +42,7 @@ to setup
   update-lorenz-and-gini
   reset-ticks
   set delay 1
+  set inbox []
 end
 
 to turtle-setup ;; turtle procedure
@@ -55,7 +55,6 @@ to turtle-setup ;; turtle procedure
   set age 0
   set vision random-in-range 1 6
   set exchanges []
-  set messages []
   ;; turtles can look horizontally and vertically up to vision patches
   ;; but cannot look diagonally at all
   set vision-points []
@@ -95,7 +94,6 @@ to go
   ask turtles [
     turtle-move
     turtle-eat
-    turtle-exchange
     set age (age + 1)
     if sugar <= 0 or age > max-age [
       hatch 1 [ turtle-setup ]
@@ -124,51 +122,24 @@ to turtle-eat ;; turtle procedure
   set psugar 0
 end
 
-to turtle-exchange ;; turtle procedure
-  ;; run the exchange algorithm
-  let tempm []
-  let id [who] of self
+to turtle-proposals ;; turtle procedure
+  ;; send proposals
 
   ifelse sugar > metabolism * 5 [
-    let lending sugar - (metabolism * 5)
-
     ;; offer lending
-    ifelse length messages = 0 [
-      ;; send offer
-
-      ;; filter the best options to propouse
-      foreach (list turtles) [
-        ;;t -> if (metabolism * 5) - (sugar + lending) <= 3 [if length tempm <= 5 [set tempm fput t tempm]]
-      ]
-
-      ;; send offers
-      foreach tempm [
-        t -> ask t [set messages fput (list "L" lending id ticks "O") messages]
-      ]
-    ]
-    [
-      ;; review messages
-
-      ;; reject those that are either: debt lending offer, is more than 2 ticks old or has already been rejected
-      foreach messages [
-        m -> ifelse position 0 m = "D" and position 2 m <= 2 and position 3 m != "R" [set tempm fput m tempm] [ask turtle (position 1 m) [set messages fput (list "L" 0 id ticks "R") messages]]
-      ]
-
-      ;; answer if ok or send proposals
-
-    ]
+    set inbox lput (list ticks who 0 0) inbox     ;; to-do change 0 for % amount of self sugar
   ]
   [
     ;; take debt
-    ifelse length messages = 0 [
-      ;; send offer
-    ]
-    [
-      ;; review messages
-      foreach messages [
+    set inbox lput (list ticks who 1 0) inbox     ;; to-do change 0 for % amount of self sugar
+  ]
 
-      ]
-    ]
+end
+
+to turtle-exchange [agent amount] ;; turtle procedure
+  ;; update sugar if an exchange
+  ask agent [
+    set sugar sugar + amount
   ]
 
 end
@@ -458,6 +429,13 @@ To try:
 * Implement a global inbox where turtles leave their proposals.
 * Match each reciprocal pair of proposals.
 * Update each turtle's sugar based on the past step.
+
+Proposal format:
+
+1. tick
+2. author
+3. type: 0 - offer lending 1 - take debt
+4. amount: % of its sugar
 
 ## WHAT IS IT?
 
