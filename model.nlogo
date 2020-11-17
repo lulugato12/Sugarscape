@@ -91,16 +91,26 @@ to go
       patch-growback
       patch-recolor
   ]
+
+  ;; exchanges first
+
+
+  ;; updates second
   ask turtles [
     turtle-move
     turtle-eat
     set age (age + 1)
-    if sugar <= 0 or age > max-age [
+    ifelse sugar <= 0 or age > max-age [
       hatch 1 [ turtle-setup ]
       die
     ]
+    [
+      ;; if the turtle lives for the next tick, it can exchange
+      turtle-proposals
+    ]
     run visualization
   ]
+
   update-lorenz-and-gini
   set delay delay + 1
   tick
@@ -124,22 +134,17 @@ end
 
 to turtle-proposals ;; turtle procedure
   ;; send proposals
+  let amount (sugar - (metabolism * 5))                       ;; difference
 
-  ifelse sugar > metabolism * 5 [
-    ;; offer lending
-    set inbox lput (list ticks who 0 0) inbox     ;; to-do change 0 for % amount of self sugar
-  ]
-  [
-    ;; take debt
-    set inbox lput (list ticks who 1 0) inbox     ;; to-do change 0 for % amount of self sugar
-  ]
-
-end
-
-to turtle-exchange [agent amount] ;; turtle procedure
-  ;; update sugar if an exchange
-  ask agent [
-    set sugar sugar + amount
+  if amount != 0 [
+    ifelse sugar > metabolism * 5 [
+      ;; offer lending
+      set inbox lput (list ticks who 0 amount) inbox          ;; the max of lending amount
+    ]
+    [
+      ;; take debt
+      set inbox lput (list ticks who 1 (amount * -1)) inbox   ;; the min of debt taking
+    ]
   ]
 
 end
@@ -180,6 +185,50 @@ end
 
 to-report random-in-range [low high]
   report low + random (high - low + 1)
+end
+
+to make-matches
+  let lending []
+  let debt []
+
+  ;; clean messages and separate by type
+  foreach inbox[
+    ;; verify if not expired
+    ;; then separete between the two lists
+    ;; save only turtle and amount
+    m -> if ticks - (item 0 m) <= 2 [
+      ifelse (item 2 m) = 0 [
+        set lending lput (list (item 1 m) (item 3 m)) lending
+      ]
+      [
+        set lending lput (list (item 1 m) (item 3 m)) debt
+      ]
+    ]
+  ]
+
+  ;; matching
+  if length lending != 0 and length debt != 0 [
+    ;; remove repeated agents                             <- left here
+    let agents []
+    foreach lending [
+      l ->
+    ]
+
+    ;; sort descending by amount
+    set lending sort-by [[m1 m2] -> (item 1 m1) > (item 1 m2)] lending
+    set debt sort-by [[m1 m2] -> (item 1 m1) > (item 1 m2)]  debt
+  ]
+
+  ;;
+  set inbox lput lending inbox
+  set inbox lput debt inbox
+end
+
+to sugar-update [agent amount]
+  ;; update sugar if an exchange
+  ask turtle agent [
+    set sugar sugar + amount
+  ]
 end
 
 ;;
@@ -430,12 +479,24 @@ To try:
 * Match each reciprocal pair of proposals.
 * Update each turtle's sugar based on the past step.
 
+Date: 16-11-20
+Lourdes.
+
+Update:
+
+* Unfinished: matching, repeated agents and delete finished transactions.
+* I forgot what does the implementation does not take on account...
+
 Proposal format:
 
 1. tick
-2. author
+2. author (who #)
 3. type: 0 - offer lending 1 - take debt
-4. amount: % of its sugar
+4. amount: required sugar to live or left sugar to offer
+
+Matching format:
+1. author (who #)
+2. amount: required sugar to live or left sugar to offer
 
 ## WHAT IS IT?
 
