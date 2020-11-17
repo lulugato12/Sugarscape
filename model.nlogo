@@ -93,7 +93,7 @@ to go
   ]
 
   ;; exchanges first
-
+  ;; make-matches
 
   ;; updates second
   ask turtles [
@@ -134,19 +134,18 @@ end
 
 to turtle-proposals ;; turtle procedure
   ;; send proposals
-  let amount (sugar - (metabolism * 5))                       ;; difference
+  let amount (sugar - (metabolism * 5))                             ;; difference
 
   if amount != 0 [
     ifelse sugar > metabolism * 5 [
       ;; offer lending
-      set inbox lput (list ticks who 0 amount) inbox          ;; the max of lending amount
+      set inbox lput (list ticks who 0 amount) inbox                ;; the max of lending amount
     ]
     [
       ;; take debt
-      set inbox lput (list ticks who 1 (amount * -1)) inbox   ;; the min of debt taking
+      set inbox lput (list ticks who 1 ((amount + 1) * -1)) inbox   ;; the min of debt taking
     ]
   ]
-
 end
 
 to patch-recolor ;; patch procedure
@@ -198,8 +197,10 @@ to make-matches
     ;; save only turtle and amount
     m -> if ticks - (item 0 m) <= 2 [
       ifelse (item 2 m) = 0 [
+        ;; lending offer
         set lending lput (list (item 1 m) (item 3 m)) lending
       ]
+        ;; debt taking
       [
         set lending lput (list (item 1 m) (item 3 m)) debt
       ]
@@ -217,9 +218,13 @@ to make-matches
     ;; sort descending by amount
     set lending sort-by [[m1 m2] -> (item 1 m1) > (item 1 m2)] lending
     set debt sort-by [[m1 m2] -> (item 1 m1) > (item 1 m2)]  debt
+
+    ;; match
+    ;; sugar-update
+    ;; delete proposals
   ]
 
-  ;;
+  ;; save the left proposals
   set inbox lput lending inbox
   set inbox lput debt inbox
 end
@@ -485,7 +490,8 @@ Lourdes.
 Update:
 
 * Unfinished: matching, repeated agents and delete finished transactions.
-* I forgot what does the implementation does not take on account...
+* The implementation does not take on account any update on the sugar.
+* The implementation does not pay lended money yet
 
 Proposal format:
 
@@ -495,8 +501,15 @@ Proposal format:
 4. amount: required sugar to live or left sugar to offer
 
 Matching format:
+
 1. author (who #)
 2. amount: required sugar to live or left sugar to offer
+
+Date: 17-11-20
+
+* This implementation works through institutions
+* Shall we verify if the agent can still lend sugar?
+* Shall the new turtle inherit its parent's sugar?
 
 ## WHAT IS IT?
 
