@@ -213,11 +213,32 @@ to make-matches
 
   ;; matching
   if length lending != 0 and length debt != 0 [
-    ;; remove repeated agents                             <- left here
+    ;; remove repeated agents
     let agents []
-    foreach lending [
-      l -> ;;show l
+    let tempo []
+
+    foreach debt [
+      l -> if not member? (item 1 l) agents[
+        ;; if not in agents, save who # and the proposal for later
+        set agents lput (item 1 l) agents
+        set tempo lput l tempo
+      ]
     ]
+
+    ;; save the filtered proposals and free tempo
+    set debt tempo
+    set tempo []
+
+    foreach lending [
+      l -> if not member? (item 1 l) agents[
+        ;; if not in agents, save who # and the proposal for later
+        set agents lput (item 1 l) agents
+        set tempo lput l tempo
+      ]
+    ]
+
+    ;; save the filtered proposals and free tempo
+    set lending tempo
 
     ;; sort descending by amount
     set lending sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] lending
@@ -509,10 +530,17 @@ Matching format:
 2. amount: required sugar to live or left sugar to offer
 
 Date: 17-11-20
+Meeting.
 
-* This implementation works through institutions
+* This implementation works through institutions.
 * Shall we verify if the agent can still lend sugar?
 * Shall the new turtle inherit its parent's sugar?
+
+Lourdes.
+Update:
+
+* The matching algorithm does not necessarily take the best proposal of a repeated agent.
+* Actually, the debt taking has preference.
 
 ## WHAT IS IT?
 
