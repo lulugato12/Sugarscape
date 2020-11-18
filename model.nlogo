@@ -5,9 +5,11 @@ extensions [
 globals [
   gini-index-reserve
   lorenz-points
-  sugar-predict
-  delay               ;; variable to delay sugar-predict change
+  ;;sugar-predict
+  ;;delay               ;; variable to delay sugar-predict change
   inbox               ;; communal mailbox for exchange proposals
+  sugar-exchange      ;; sugar exchanged between agents each tick
+  deaths              ;; amount of dead turtles each tick
 ]
 
 turtles-own [
@@ -41,8 +43,10 @@ to setup
   setup-patches
   update-lorenz-and-gini
   reset-ticks
-  set delay 1
+  ;;set delay 1
   set inbox []
+  set sugar-exchange 0
+  set deaths 0
 end
 
 to turtle-setup ;; turtle procedure
@@ -81,18 +85,20 @@ end
 ;;
 
 to go
+  set deaths 0
   if not any? turtles [
     stop
   ]
-  if delay mod 12 = 0 [
-    set sugar-predict py:runresult "random.choices([1,-1], [0.431034483, 0.568965517])[0]"  ;; grow or decrease sugar
-  ]
+  ;; not required now
+  ;;if delay mod 12 = 0 [
+    ;;set sugar-predict py:runresult "random.choices([1,-1], [0.431034483, 0.568965517])[0]"  ;; grow or decrease sugar
+  ;;]
   ask patches [
       patch-growback
       patch-recolor
   ]
 
-  ;; exchanges first
+  ;; exchanges first as long as it is not empty
   if length inbox != 0 [
     make-matches
   ]
@@ -102,8 +108,10 @@ to go
     turtle-move
     turtle-eat
     set age (age + 1)
+
     ifelse sugar <= 0 or age > max-age [
       hatch 1 [ turtle-setup ]
+      set deaths deaths + 1
       die
     ]
     [
@@ -114,7 +122,6 @@ to go
   ]
 
   update-lorenz-and-gini
-  set delay delay + 1
   tick
 end
 
@@ -157,7 +164,7 @@ end
 
 to patch-growback ;; patch procedure
   ;; gradually grow back all of the sugar for the patch
-  set psugar min (list max-psugar (psugar + sugar-predict))
+  set psugar min (list max-psugar (psugar + 1));;sugar-predict))
   set psugar max (list 0 psugar)
 end
 
@@ -189,6 +196,7 @@ to-report random-in-range [low high]
 end
 
 to make-matches
+  set sugar-exchange 0
   let lending []
   let debt []
 
@@ -198,7 +206,7 @@ to make-matches
     ;; then separete between the two lists
     ;; save only turtle and amount
     m -> if length m != 0 [
-      if ticks - (item 0 m) <= 2 [
+      if ticks - (item 0 m) <= 2 and (turtle (item 1 m)) != nobody [
         ifelse (item 2 m) = 0 [
           ;; lending offer
           set lending lput m lending
@@ -218,10 +226,10 @@ to make-matches
     let tempo []
 
     foreach debt [
-      l -> if not member? (item 1 l) agents[
+      d -> if not member? (item 1 d) agents[
         ;; if not in agents, save who # and the proposal for later
-        set agents lput (item 1 l) agents
-        set tempo lput l tempo
+        set agents lput (item 1 d) agents
+        set tempo lput d tempo
       ]
     ]
 
@@ -244,9 +252,43 @@ to make-matches
     set lending sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] lending
     set debt sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)]  debt
 
-    ;; match
-    ;; sugar-update
-    ;; delete proposals
+    set tempo []
+    ;; match time!
+    foreach debt[
+      ;; it'll find the first best option in the lending list
+      d ->
+      let best []
+      let notfound true
+      let index 0
+
+      ;; while not a best or still an index valid
+      while [notfound and index < length lending][
+        ;; if the current proposal offers at least the same as de sugar ask, take it
+        if (item 3 (item index lending)) >= (item 3 d)[
+          set notfound false
+          set best (item index lending)
+        ]
+        set index index + 1
+      ]
+
+      ifelse length best != 0 [
+        ;; if one best, the proposal is deleted as it is used
+        set lending remove-item (index - 1) lending
+        set sugar-exchange sugar-exchange + (item 3 d)
+
+        ;;sugar update with the sugar of the poorest
+        sugar-update (item 1 best) (-1)*(item 3 d)
+        sugar-update (item 1 d) (item 3 d)
+      ]
+      [
+        ;; if no best, it is saved to be used in another tick
+        set tempo lput d tempo
+      ]
+    ]
+    ;; update lending with the left proposals
+    if length tempo != 0[
+      set lending tempo
+    ]
   ]
 
   ;; save the left proposals
@@ -366,7 +408,7 @@ CHOOSER
 visualization
 visualization
 "no-visualization" "color-agents-by-vision" "color-agents-by-metabolism"
-0
+2
 
 PLOT
 720
@@ -462,29 +504,18 @@ maximum-sugar-endowment
 maximum-sugar-endowment
 0
 200
-40.0
+60.0
 1
 1
 NIL
 HORIZONTAL
 
-MONITOR
-945
-15
-1032
-60
-NIL
-sugar-predict
-17
-1
-11
-
 PLOT
-945
-85
+935
+10
 1145
-235
-Sugar average
+140
+Sugar average per turtle
 Time
 Sugar
 0.0
@@ -495,7 +526,43 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" "plot sum [psugar] of patches / count patches"
+"default" 1.0 0 -16777216 true "" "plot sum [sugar] of turtles / count turtles"
+
+PLOT
+935
+145
+1145
+295
+Sugar exchanged
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot sugar-exchange"
+
+PLOT
+935
+300
+1145
+440
+Number of deaths
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot deaths"
 
 @#$#@#$#@
 ## NOTES
