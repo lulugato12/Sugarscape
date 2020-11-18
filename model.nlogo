@@ -93,7 +93,9 @@ to go
   ]
 
   ;; exchanges first
-  ;; make-matches
+  if length inbox != 0 [
+    make-matches
+  ]
 
   ;; updates second
   ask turtles [
@@ -134,10 +136,10 @@ end
 
 to turtle-proposals ;; turtle procedure
   ;; send proposals
-  let amount (sugar - (metabolism * 5))                             ;; difference
+  let amount (sugar - (metabolism * 10))                             ;; difference
 
   if amount != 0 [
-    ifelse sugar > metabolism * 5 [
+    ifelse amount > 0 [
       ;; offer lending
       set inbox lput (list ticks who 0 amount) inbox                ;; the max of lending amount
     ]
@@ -195,14 +197,16 @@ to make-matches
     ;; verify if not expired
     ;; then separete between the two lists
     ;; save only turtle and amount
-    m -> if ticks - (item 0 m) <= 2 [
-      ifelse (item 2 m) = 0 [
-        ;; lending offer
-        set lending lput (list (item 1 m) (item 3 m)) lending
-      ]
-        ;; debt taking
-      [
-        set lending lput (list (item 1 m) (item 3 m)) debt
+    m -> if length m != 0 [
+      if ticks - (item 0 m) <= 2 [
+        ifelse (item 2 m) = 0 [
+          ;; lending offer
+          set lending lput m lending
+        ]
+        [
+          ;; debt taking
+          set debt lput m debt
+        ]
       ]
     ]
   ]
@@ -212,12 +216,12 @@ to make-matches
     ;; remove repeated agents                             <- left here
     let agents []
     foreach lending [
-      l ->
+      l -> ;;show l
     ]
 
     ;; sort descending by amount
-    set lending sort-by [[m1 m2] -> (item 1 m1) > (item 1 m2)] lending
-    set debt sort-by [[m1 m2] -> (item 1 m1) > (item 1 m2)]  debt
+    set lending sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] lending
+    set debt sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)]  debt
 
     ;; match
     ;; sugar-update
@@ -225,8 +229,7 @@ to make-matches
   ]
 
   ;; save the left proposals
-  set inbox lput lending inbox
-  set inbox lput debt inbox
+  set inbox sentence lending debt
 end
 
 to sugar-update [agent amount]
@@ -371,7 +374,7 @@ initial-population
 initial-population
 10
 1000
-400.0
+10.0
 10
 1
 NIL
