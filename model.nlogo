@@ -6,7 +6,7 @@ globals [
   gini-index-reserve
   lorenz-points
   ;;sugar-predict
-  ;;delay               ;; variable to delay sugar-predict change
+  ;;delay             ;; variable to delay sugar-predict change
   inbox               ;; communal mailbox for exchange proposals
   sugar-exchange      ;; sugar exchanged between agents each tick
   deaths              ;; amount of dead turtles each tick
@@ -99,7 +99,7 @@ to go
   ]
 
   ;; exchanges first as long as it is not empty
-  if length inbox != 0 [
+  if length inbox != 0 and allow-exchanges [
     make-matches
   ]
 
@@ -116,7 +116,9 @@ to go
     ]
     [
       ;; if the turtle lives for the next tick, it can exchange
-      turtle-proposals
+      if allow-exchanges[
+        turtle-proposals
+      ]
     ]
     run visualization
   ]
@@ -351,9 +353,9 @@ ticks
 
 BUTTON
 10
-135
-90
 175
+90
+215
 NIL
 setup
 NIL
@@ -368,9 +370,9 @@ NIL
 
 BUTTON
 100
-135
-190
 175
+190
+215
 NIL
 go
 T
@@ -385,9 +387,9 @@ NIL
 
 BUTTON
 200
-135
-290
 175
+290
+215
 go once
 go
 NIL
@@ -402,13 +404,13 @@ NIL
 
 CHOOSER
 10
-190
+230
 290
-235
+275
 visualization
 visualization
 "no-visualization" "color-agents-by-vision" "color-agents-by-metabolism"
-2
+0
 
 PLOT
 720
@@ -437,7 +439,7 @@ initial-population
 initial-population
 10
 1000
-10.0
+200.0
 10
 1
 NIL
@@ -564,23 +566,25 @@ false
 PENS
 "default" 1.0 0 -16777216 true "" "plot deaths"
 
+SWITCH
+75
+130
+222
+163
+allow-exchanges
+allow-exchanges
+0
+1
+-1000
+
 @#$#@#$#@
 ## NOTES
-Date: 11-11-20
-Lourdes.
-
-To try:
-
-* Implement a global inbox where turtles leave their proposals.
-* Match each reciprocal pair of proposals.
-* Update each turtle's sugar based on the past step.
 
 Date: 16-11-20
 Lourdes.
 
-Update:
+Notes:
 
-* Unfinished: matching, repeated agents and delete finished transactions.
 * The implementation does not take on account any update on the sugar.
 * The implementation does not pay lended money yet
 
@@ -609,6 +613,18 @@ Update:
 * The matching algorithm does not necessarily take the best proposal of a repeated agent.
 * Actually, the debt taking has preference.
 
+19-11-20
+Lourdes.
+
+To-do:
+
+* Update WHAT IS IT?
+
+Notes:
+
+* The lended sugar is never paid back.
+* There is no lending/debt-taking historial.
+
 ## WHAT IS IT?
 
 This third model in the NetLogo Sugarscape suite implements Epstein & Axtell's Sugarscape Wealth Distribution model, as described in chapter 2 of their book Growing Artificial Societies: Social Science from the Bottom Up. It provides a ground-up simulation of inequality in wealth. Only a minority of the population have above average wealth, while most agents have wealth near the same level as the initial endowment.
@@ -628,11 +644,15 @@ Each agent also has a maximum age, which is assigned randomly from the range 60 
 
 Whenever an agent dies (either from starvation or old age), a new randomly initialized agent is created somewhere in the world; hence, in this model the global population count stays constant.
 
+This simulation allows agents to exchange sugar. It is handled through a global list that works as a bank: it matches agents that lend sugar and agents that ask for credit. At each tick, agents decide to make a proposal based on their capability of satisfy their metabolism for the next 10 ticks. If yes, they post a lending proposal of a maximum amount; if no, they post a credit proposal of the minimun amount to reach the wellness criteria.
+
 ## HOW TO USE IT
 
 The INITIAL-POPULATION slider sets how many agents are in the world.
 
 The MINIMUM-SUGAR-ENDOWMENT and MAXIMUM-SUGAR-ENDOWMENT sliders set the initial amount of sugar ("wealth") each agent has when it hatches. The actual value is randomly chosen from the given range.
+
+The ALLOW-EXCHANGES switch enables/disables the possibility of sugar exhagens between agents.
 
 Press SETUP to populate the world with agents and import the sugar map data. GO will run the simulation continuously, while GO ONCE will run one tick.
 
