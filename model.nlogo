@@ -8,6 +8,7 @@ globals [
   ;;sugar-predict
   ;;delay             ;; variable to delay sugar-predict change
   inbox               ;; communal mailbox for exchange proposals
+  exchanged-
   sugar-exchange      ;; sugar exchanged between agents each tick
   deaths              ;; amount of dead turtles each tick
 ]
@@ -39,7 +40,7 @@ to setup
     stop
   ]
   clear-all
-  create-turtles initial-population [ turtle-setup ]
+  create-turtles initial-population [ turtle-setup -1 ]
   setup-patches
   update-lorenz-and-gini
   reset-ticks
@@ -49,11 +50,11 @@ to setup
   set deaths 0
 end
 
-to turtle-setup ;; turtle procedure
+to turtle-setup [inherit_sugar] ;; turtle procedure
   set color red
   set shape "circle"
   move-to one-of patches with [not any? other turtles-here]
-  set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment
+  ifelse inheritance and inherit_sugar > 0 [ set sugar inherit_sugar ] [ set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment ]
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
@@ -110,7 +111,7 @@ to go
     set age (age + 1)
 
     ifelse sugar <= 0 or age > max-age [
-      hatch 1 [ turtle-setup ]
+      hatch 1 [ turtle-setup sugar ]
       set deaths deaths + 1
       die
     ]
@@ -121,6 +122,11 @@ to go
       ]
     ]
     run visualization
+  ]
+
+  ;; update credit history
+  if allow-exchanges[
+    ;;update-history
   ]
 
   update-lorenz-and-gini
@@ -353,9 +359,9 @@ ticks
 
 BUTTON
 10
-175
+185
 90
-215
+225
 NIL
 setup
 NIL
@@ -370,9 +376,9 @@ NIL
 
 BUTTON
 100
-175
+185
 190
-215
+225
 NIL
 go
 T
@@ -387,9 +393,9 @@ NIL
 
 BUTTON
 200
-175
+185
 290
-215
+225
 go once
 go
 NIL
@@ -404,13 +410,13 @@ NIL
 
 CHOOSER
 10
-230
+240
 290
-275
+285
 visualization
 visualization
 "no-visualization" "color-agents-by-vision" "color-agents-by-metabolism"
-0
+1
 
 PLOT
 720
@@ -567,26 +573,29 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot deaths"
 
 SWITCH
-75
-130
-222
-163
+10
+135
+157
+168
 allow-exchanges
 allow-exchanges
 0
 1
 -1000
 
+SWITCH
+175
+135
+292
+168
+inheritance
+inheritance
+1
+1
+-1000
+
 @#$#@#$#@
 ## NOTES
-
-Date: 16-11-20
-Lourdes.
-
-Notes:
-
-* The implementation does not take on account any update on the sugar.
-* The implementation does not pay lended money yet
 
 Proposal format:
 
@@ -595,17 +604,11 @@ Proposal format:
 3. type: 0 - offer lending 1 - take debt
 4. amount: required sugar to live or left sugar to offer
 
-Matching format:
-
-1. author (who #)
-2. amount: required sugar to live or left sugar to offer
-
 Date: 17-11-20
 Meeting.
 
 * This implementation works through institutions.
 * Shall we verify if the agent can still lend sugar?
-* Shall the new turtle inherit its parent's sugar?
 
 Lourdes.
 Update:
@@ -618,12 +621,22 @@ Lourdes.
 
 To-do:
 
-* Update WHAT IS IT?
-
 Notes:
 
 * The lended sugar is never paid back.
 * There is no lending/debt-taking historial.
+
+24-11-20
+Lourdes
+
+To-do:
+
+
+* Update WHAT IS IT?
+* Make the lending/debt-taking historial.
+* Activate/deactive sugar inheritance.
+* Add interests to credit.
+* Up to 100 sugar units, the agents stop moving and its sugar grows # units per # ticks.
 
 ## WHAT IS IT?
 
