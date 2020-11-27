@@ -8,7 +8,7 @@ globals [
   ;;sugar-predict
   ;;delay             ;; variable to delay sugar-predict change
   inbox               ;; communal mailbox for exchange proposals
-  exchanged-
+  proposals-exchanged ;; proposals that where made each tick
   sugar-exchange      ;; sugar exchanged between agents each tick
   deaths              ;; amount of dead turtles each tick
 ]
@@ -48,6 +48,7 @@ to setup
   set inbox []
   set sugar-exchange 0
   set deaths 0
+  set proposals-exchanged []
 end
 
 to turtle-setup [inherit_sugar] ;; turtle procedure
@@ -106,6 +107,7 @@ to go
 
   ;; updates second
   ask turtles [
+    turtle-history
     turtle-move
     turtle-eat
     set age (age + 1)
@@ -123,6 +125,8 @@ to go
     ]
     run visualization
   ]
+
+  set proposals-exchanged []
 
   ;; update credit history
   if allow-exchanges[
@@ -161,6 +165,15 @@ to turtle-proposals ;; turtle procedure
     [
       ;; take debt
       set inbox lput (list ticks who 1 ((amount + 1) * -1)) inbox   ;; the min of debt taking
+    ]
+  ]
+end
+
+to turtle-history ;; turtle procedure
+  ;; check if exchanges
+  foreach proposals-exchanged[
+    p -> if (item 0 p) = who [
+      set exchanges lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p)) exchanges
     ]
   ]
 end
@@ -284,9 +297,13 @@ to make-matches
         set lending remove-item (index - 1) lending
         set sugar-exchange sugar-exchange + (item 3 d)
 
-        ;;sugar update with the sugar of the poorest
+        ;; sugar update with the sugar of the poorest
         sugar-update (item 1 best) (-1)*(item 3 d)
         sugar-update (item 1 d) (item 3 d)
+
+        ;; save the exchanges
+        set proposals-exchanged lput (list (item 1 best) (item 1 d) 0 (item 3 d) ticks) proposals-exchanged
+        set proposals-exchanged lput (list (item 1 d) (item 1 best) 1 (item 3 d) ticks) proposals-exchanged
       ]
       [
         ;; if no best, it is saved to be used in another tick
@@ -604,6 +621,14 @@ Proposal format:
 3. type: 0 - offer lending 1 - take debt
 4. amount: required sugar to live or left sugar to offer
 
+Proposal exchanged format:
+
+1. owner (who #) (this is gone when it is saved on the agent's history
+2. debtor/lender (who #)
+3. type: 0 - offer lending 1 - take debt
+4. amount
+5. tick
+
 Date: 17-11-20
 Meeting.
 
@@ -634,7 +659,6 @@ To-do:
 
 * Update WHAT IS IT?
 * Make the lending/debt-taking historial.
-* Activate/deactive sugar inheritance.
 * Add interests to credit.
 * Up to 100 sugar units, the agents stop moving and its sugar grows # units per # ticks.
 
