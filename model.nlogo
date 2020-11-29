@@ -55,7 +55,7 @@ to turtle-setup [inherit_sugar] ;; turtle procedure
   set color red
   set shape "circle"
   move-to one-of patches with [not any? other turtles-here]
-  ifelse inheritance and inherit_sugar > 0 [ set sugar inherit_sugar ] [ set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment ]
+  ifelse allow-inheritance and inherit_sugar > 0 [ set sugar inherit_sugar ] [ set sugar random-in-range minimum-sugar-endowment maximum-sugar-endowment ]
   set metabolism random-in-range 1 4
   set max-age random-in-range 60 100
   set age 0
@@ -108,8 +108,15 @@ to go
   ;; updates second
   ask turtles [
     turtle-history
-    turtle-move
-    turtle-eat
+    ifelse sugar >= 100 and allow-money-grow[
+      set sugar sugar - metabolism + random-in-range 1 3
+      set metabolism metabolism + ceiling (sugar / 100)
+
+    ]
+    [
+      turtle-move
+      turtle-eat
+    ]
     set age (age + 1)
 
     ifelse sugar <= 0 or age > max-age [
@@ -160,7 +167,7 @@ to turtle-proposals ;; turtle procedure
   if amount != 0 [
     ifelse amount > 0 [
       ;; offer lending
-      set inbox lput (list ticks who 0 amount) inbox                ;; the max of lending amount
+      set inbox lput (list ticks who 0 amount (random-in-range 1 3)) inbox   ;; the max of lending amount
     ]
     [
       ;; take debt
@@ -173,7 +180,7 @@ to turtle-history ;; turtle procedure
   ;; check if exchanges
   foreach proposals-exchanged[
     p -> if (item 0 p) = who [
-      set exchanges lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p)) exchanges
+      set exchanges lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p) (item 5 p)) exchanges
     ]
   ]
 end
@@ -302,8 +309,8 @@ to make-matches
         sugar-update (item 1 d) (item 3 d)
 
         ;; save the exchanges
-        set proposals-exchanged lput (list (item 1 best) (item 1 d) 0 (item 3 d) ticks) proposals-exchanged
-        set proposals-exchanged lput (list (item 1 d) (item 1 best) 1 (item 3 d) ticks) proposals-exchanged
+        set proposals-exchanged lput (list (item 1 best) (item 1 d) 0 (item 3 d) (item 4 best) ticks) proposals-exchanged
+        set proposals-exchanged lput (list (item 1 d) (item 1 best) 1 (item 3 d) (item 4 best) ticks) proposals-exchanged
       ]
       [
         ;; if no best, it is saved to be used in another tick
@@ -348,9 +355,9 @@ end
 ; See Info tab for full copyright and license.
 @#$#@#$#@
 GRAPHICS-WINDOW
-300
+320
 10
-708
+728
 419
 -1
 -1
@@ -376,9 +383,9 @@ ticks
 
 BUTTON
 10
-185
+230
 90
-225
+270
 NIL
 setup
 NIL
@@ -393,9 +400,9 @@ NIL
 
 BUTTON
 100
-185
+230
 190
-225
+270
 NIL
 go
 T
@@ -410,9 +417,9 @@ NIL
 
 BUTTON
 200
-185
+230
 290
-225
+270
 go once
 go
 NIL
@@ -427,18 +434,18 @@ NIL
 
 CHOOSER
 10
-240
-290
 285
+290
+330
 visualization
 visualization
 "no-visualization" "color-agents-by-vision" "color-agents-by-metabolism"
-1
+0
 
 PLOT
-720
+740
 10
-925
+945
 140
 Wealth distribution
 NIL
@@ -454,25 +461,25 @@ PENS
 "default" 1.0 1 -16777216 true "" "set-histogram-num-bars 10\nset-plot-x-range 0 (max [sugar] of turtles + 1)\nset-plot-pen-interval (max [sugar] of turtles + 1) / 10\nhistogram [sugar] of turtles"
 
 SLIDER
+15
 10
-10
-290
+295
 43
 initial-population
 initial-population
 10
 1000
-200.0
+220.0
 10
 1
 NIL
 HORIZONTAL
 
 SLIDER
-10
-50
-290
-83
+15
+55
+295
+88
 minimum-sugar-endowment
 minimum-sugar-endowment
 0
@@ -484,10 +491,10 @@ NIL
 HORIZONTAL
 
 PLOT
-720
-145
-925
-295
+740
+150
+945
+300
 Lorenz curve
 Pop %
 Wealth %
@@ -503,10 +510,10 @@ PENS
 "lorenz" 1.0 0 -2674135 true "" "plot-pen-reset\nset-plot-pen-interval 100 / count turtles\nplot 0\nforeach lorenz-points plot"
 
 PLOT
-720
-300
-925
-440
+740
+315
+945
+455
 Gini index vs. time
 Time
 Gini
@@ -521,10 +528,10 @@ PENS
 "default" 1.0 0 -13345367 true "" "plot (gini-index-reserve / count turtles) * 2"
 
 SLIDER
-10
-90
-290
-123
+15
+100
+295
+133
 maximum-sugar-endowment
 maximum-sugar-endowment
 0
@@ -536,9 +543,9 @@ NIL
 HORIZONTAL
 
 PLOT
-935
+955
 10
-1145
+1165
 140
 Sugar average per turtle
 Time
@@ -554,10 +561,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot sum [sugar] of turtles / count turtles"
 
 PLOT
-935
-145
-1145
-295
+955
+150
+1165
+300
 Sugar exchanged
 NIL
 NIL
@@ -572,10 +579,10 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot sugar-exchange"
 
 PLOT
-935
-300
-1145
-440
+955
+315
+1165
+455
 Number of deaths
 NIL
 NIL
@@ -591,22 +598,33 @@ PENS
 
 SWITCH
 10
-135
+145
 157
-168
+178
 allow-exchanges
 allow-exchanges
-0
+1
 1
 -1000
 
 SWITCH
-175
-135
-292
-168
-inheritance
-inheritance
+160
+145
+307
+178
+allow-inheritance
+allow-inheritance
+1
+1
+-1000
+
+SWITCH
+10
+185
+167
+218
+allow-money-grow
+allow-money-grow
 1
 1
 -1000
@@ -620,6 +638,7 @@ Proposal format:
 2. author (who #)
 3. type: 0 - offer lending 1 - take debt
 4. amount: required sugar to live or left sugar to offer
+5. interest: only if type 0. units of sugar per time mod 31.
 
 Proposal exchanged format:
 
@@ -627,7 +646,8 @@ Proposal exchanged format:
 2. debtor/lender (who #)
 3. type: 0 - offer lending 1 - take debt
 4. amount
-5. tick
+5. interest
+6. tick
 
 Date: 17-11-20
 Meeting.
@@ -649,7 +669,6 @@ To-do:
 Notes:
 
 * The lended sugar is never paid back.
-* There is no lending/debt-taking historial.
 
 24-11-20
 Lourdes
@@ -658,9 +677,14 @@ To-do:
 
 
 * Update WHAT IS IT?
-* Make the lending/debt-taking historial.
-* Add interests to credit.
 * Up to 100 sugar units, the agents stop moving and its sugar grows # units per # ticks.
+
+28-11-20
+Lourdes.
+
+To-do:
+
+* Make debtors pay back
 
 ## WHAT IS IT?
 
