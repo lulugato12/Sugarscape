@@ -41,7 +41,7 @@ to setup
   ]
   clear-all
   create-turtles initial-population [ turtle-setup -1 ]
-  setup-patches
+  ;; setup-patches
   update-lorenz-and-gini
   reset-ticks
   ;;set delay 1
@@ -95,10 +95,10 @@ to go
   ;;if delay mod 12 = 0 [
     ;;set sugar-predict py:runresult "random.choices([1,-1], [0.431034483, 0.568965517])[0]"  ;; grow or decrease sugar
   ;;]
-  ask patches [
-      patch-growback
-      patch-recolor
-  ]
+  ;;ask patches [
+  ;;    patch-growback
+  ;;    patch-recolor
+  ;;]
 
   ;; exchanges first as long as it is not empty
   if length inbox != 0 and allow-exchanges [
@@ -108,7 +108,7 @@ to go
   ;; updates second
   ask turtles [
     turtle-history
-    ifelse sugar >= 100 and allow-money-grow[
+    ifelse sugar >= 50 and allow-money-grow[
       set sugar sugar - metabolism + random-in-range 1 3
       set metabolism metabolism + ceiling (sugar / 100)
 
@@ -156,8 +156,8 @@ end
 
 to turtle-eat ;; turtle procedure
   ;; metabolize some sugar, and eat all the sugar on the current patch
-  set sugar (sugar - metabolism + psugar)
-  set psugar 0
+  set sugar (sugar - metabolism)
+  ;;set psugar 0
 end
 
 to turtle-proposals ;; turtle procedure
@@ -440,7 +440,7 @@ CHOOSER
 visualization
 visualization
 "no-visualization" "color-agents-by-vision" "color-agents-by-metabolism"
-0
+2
 
 PLOT
 740
@@ -469,7 +469,7 @@ initial-population
 initial-population
 10
 1000
-220.0
+120.0
 10
 1
 NIL
@@ -536,7 +536,7 @@ maximum-sugar-endowment
 maximum-sugar-endowment
 0
 200
-60.0
+100.0
 1
 1
 NIL
@@ -614,7 +614,7 @@ SWITCH
 178
 allow-inheritance
 allow-inheritance
-1
+0
 1
 -1000
 
