@@ -20,6 +20,7 @@ turtles-own [
   vision-points   ;; the points that this turtle can see in relative to it's current position (based on vision)
   age             ;; the current age of this turtle (in ticks)
   max-age         ;; the age at which this turtle will die of natural causes
+  increased       ;; the amount of metabolism increase
   exchanges       ;; the list of lends and debts
 ]
 
@@ -42,6 +43,7 @@ to setup
   clear-all
   create-turtles initial-population [ turtle-setup -1 ]
   ;; setup-patches
+  ask patches [ set pcolor 28]
   update-lorenz-and-gini
   reset-ticks
   ;;set delay 1
@@ -60,6 +62,7 @@ to turtle-setup [inherit_sugar] ;; turtle procedure
   set max-age random-in-range 60 100
   set age 0
   set vision random-in-range 1 6
+  set increased 0
   set exchanges []
   ;; turtles can look horizontally and vertically up to vision patches
   ;; but cannot look diagonally at all
@@ -109,8 +112,8 @@ to go
   ask turtles [
     turtle-history
     ifelse sugar >= 50 and allow-money-grow[
-      set sugar sugar - metabolism + random-in-range 1 3
-      set metabolism metabolism + ceiling (sugar / 100)
+      set sugar sugar - metabolism - increased + random-in-range 1 3
+      if increased != 1 [ set increased random-in-range 1 2 ]
 
     ]
     [
@@ -625,7 +628,7 @@ SWITCH
 218
 allow-money-grow
 allow-money-grow
-1
+0
 1
 -1000
 
@@ -661,30 +664,19 @@ Update:
 * The matching algorithm does not necessarily take the best proposal of a repeated agent.
 * Actually, the debt taking has preference.
 
-19-11-20
-Lourdes.
-
-To-do:
-
-Notes:
-
-* The lended sugar is never paid back.
-
-24-11-20
-Lourdes
-
-To-do:
-
-
-* Update WHAT IS IT?
-* Up to 100 sugar units, the agents stop moving and its sugar grows # units per # ticks.
-
-28-11-20
+1-12-20
 Lourdes.
 
 To-do:
 
 * Make debtors pay back
+* Update WHAT IS IT?
+
+13-13-20
+Lourdes
+Update:
+
+* The metabolism grows only once.
 
 ## WHAT IS IT?
 
