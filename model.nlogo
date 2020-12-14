@@ -8,8 +8,10 @@ globals [
   ;;sugar-predict
   ;;delay             ;; variable to delay sugar-predict change
   inbox               ;; communal mailbox for exchange proposals
+  paybacks            ;; list of paybacks to be done
   proposals-exchanged ;; proposals that where made each tick
   sugar-exchange      ;; sugar exchanged between agents each tick
+  sugar-paid          ;; sugar paid back
   deaths              ;; amount of dead turtles each tick
 ]
 
@@ -49,8 +51,10 @@ to setup
   ;;set delay 1
   set inbox []
   set sugar-exchange 0
+  set sugar-paid 0
   set deaths 0
   set proposals-exchanged []
+  set paybacks []
 end
 
 to turtle-setup [inherit_sugar] ;; turtle procedure
@@ -102,13 +106,27 @@ to go
   ;;    patch-growback
   ;;    patch-recolor
   ;;]
+  show "Hacer propuestas"
+  ask turtles [
+    ;; if the turtle lives for the next tick, it can exchange
+    if allow-exchanges[
+      turtle-proposals
+    ]
+  ]
 
+  show "Hacer pagos"
+  if length paybacks != 0 and allow-exchanges [
+    pay-turtles
+  ]
+
+  show "Hacer intercambios"
   ;; exchanges first as long as it is not empty
   if length inbox != 0 and allow-exchanges [
     make-matches
   ]
 
   ;; updates second
+  show "Actualizar historial"
   ask turtles [
     turtle-history
     ifelse sugar >= 50 and allow-money-grow[
@@ -122,16 +140,10 @@ to go
     ]
     set age (age + 1)
 
-    ifelse sugar <= 0 or age > max-age [
+    if sugar <= 0 or age > max-age [
       hatch 1 [ turtle-setup sugar ]
       set deaths deaths + 1
       die
-    ]
-    [
-      ;; if the turtle lives for the next tick, it can exchange
-      if allow-exchanges[
-        turtle-proposals
-      ]
     ]
     run visualization
   ]
@@ -165,12 +177,33 @@ end
 
 to turtle-proposals ;; turtle procedure
   ;; send proposals
-  let amount (sugar - (metabolism * 10))                             ;; difference
+  let amount (sugar - (metabolism * 10))                                       ;; difference
 
   if amount != 0 [
     ifelse amount > 0 [
-      ;; offer lending
-      set inbox lput (list ticks who 0 amount (random-in-range 1 3)) inbox   ;; the max of lending amount
+      ;; check if debt and pay
+      if length exchanges != 0 [
+        set exchanges sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] exchanges ;; sorted oldest-first
+        let unpaid []                                                          ;; to save those that remained unpaid
+
+        foreach exchanges [
+          m -> ifelse turtle (item 0 m) != nobody and amount >= ((item 1 m) + (ticks - (item 3 m)) * (item 2 m))[
+            set sugar sugar - ((item 1 m) + (ticks - (item 3 m) * (item 2 m)))
+            set amount amount - ((item 1 m) + (ticks - (item 3 m) * (item 2 m)))
+            set paybacks lput (list (item 0 m) ((item 1 m) + (ticks - (item 3 m)) * (item 2 m))) paybacks
+          ]
+          [
+            if turtle (item 0 m) != nobody [ set unpaid lput m unpaid]
+          ]
+        ]
+
+        set exchanges unpaid
+      ]
+
+      if amount > 0 [
+        ;; offer lending
+        set inbox lput (list ticks who 0 amount (random-in-range 1 3)) inbox   ;; the max of lending amount
+      ]
     ]
     [
       ;; take debt
@@ -180,10 +213,10 @@ to turtle-proposals ;; turtle procedure
 end
 
 to turtle-history ;; turtle procedure
-  ;; check if exchanges
+  ;; check if exchanges, only debt taking is saved
   foreach proposals-exchanged[
     p -> if (item 0 p) = who [
-      set exchanges lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p) (item 5 p)) exchanges
+      set exchanges lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p)) exchanges
     ]
   ]
 end
@@ -226,6 +259,19 @@ to-report random-in-range [low high]
   report low + random (high - low + 1)
 end
 
+;; pay debts
+to pay-turtles
+  set sugar-paid 0
+  foreach paybacks [
+    m -> ask turtle (item 0 m) [
+      set sugar sugar + (item 1 m)
+      set sugar-paid sugar-paid + (item 1 m)
+    ]
+  ]
+  set paybacks []
+end
+
+;; exchange of sugar
 to make-matches
   set sugar-exchange 0
   let lending []
@@ -312,8 +358,7 @@ to make-matches
         sugar-update (item 1 d) (item 3 d)
 
         ;; save the exchanges
-        set proposals-exchanged lput (list (item 1 best) (item 1 d) 0 (item 3 d) (item 4 best) ticks) proposals-exchanged
-        set proposals-exchanged lput (list (item 1 d) (item 1 best) 1 (item 3 d) (item 4 best) ticks) proposals-exchanged
+        set proposals-exchanged lput (list (item 1 d) (item 1 best) (item 3 d) (item 4 best) ticks) proposals-exchanged
       ]
       [
         ;; if no best, it is saved to be used in another tick
@@ -472,7 +517,7 @@ initial-population
 initial-population
 10
 1000
-120.0
+320.0
 10
 1
 NIL
@@ -547,24 +592,6 @@ HORIZONTAL
 
 PLOT
 955
-10
-1165
-140
-Sugar average per turtle
-Time
-Sugar
-0.0
-10.0
-0.0
-4.0
-true
-false
-"" ""
-PENS
-"default" 1.0 0 -16777216 true "" "plot sum [sugar] of turtles / count turtles"
-
-PLOT
-955
 150
 1165
 300
@@ -606,7 +633,7 @@ SWITCH
 178
 allow-exchanges
 allow-exchanges
-1
+0
 1
 -1000
 
@@ -617,7 +644,7 @@ SWITCH
 178
 allow-inheritance
 allow-inheritance
-0
+1
 1
 -1000
 
@@ -628,9 +655,27 @@ SWITCH
 218
 allow-money-grow
 allow-money-grow
-0
+1
 1
 -1000
+
+PLOT
+955
+10
+1155
+140
+Sugar paid back
+NIL
+NIL
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot sugar-paid"
 
 @#$#@#$#@
 ## NOTES
@@ -647,7 +692,6 @@ Proposal exchanged format:
 
 1. owner (who #) (this is gone when it is saved on the agent's history
 2. debtor/lender (who #)
-3. type: 0 - offer lending 1 - take debt
 4. amount
 5. interest
 6. tick
@@ -669,7 +713,6 @@ Lourdes.
 
 To-do:
 
-* Make debtors pay back
 * Update WHAT IS IT?
 
 13-13-20
