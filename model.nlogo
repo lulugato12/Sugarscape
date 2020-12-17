@@ -5,30 +5,28 @@ extensions [
 globals [
   gini-index-reserve
   lorenz-points
-  ;;sugar-predict
-  ;;delay             ;; variable to delay sugar-predict change
-  inbox               ;; communal mailbox for exchange proposals
-  paybacks            ;; list of paybacks to be done
-  proposals-exchanged ;; proposals that where made each tick
-  sugar-exchange      ;; sugar exchanged between agents each tick
-  sugar-paid          ;; sugar paid back
-  deaths              ;; amount of dead turtles each tick
+  inbox               ;; communal mailbox for exchange proposals             type: list
+  payments            ;; the list of paybacks to be done                     type: list
+  proposals-exchanged ;; the proposals that where made each tick             type: list
+  sugar-exchange      ;; amount of sugar exchanged between agents each tick  type: int
+  sugar-paid          ;; amount of sugar paid back                           type: int
+  deaths              ;; amount of dead turtles each tick                    type: int
 ]
 
 turtles-own [
-  sugar           ;; the amount of sugar this turtle has
-  metabolism      ;; the amount of sugar that each turtles loses each tick
-  vision          ;; the distance that this turtle can see in the horizontal and vertical directions
-  vision-points   ;; the points that this turtle can see in relative to it's current position (based on vision)
-  age             ;; the current age of this turtle (in ticks)
-  max-age         ;; the age at which this turtle will die of natural causes
-  increased       ;; the amount of metabolism increase
-  exchanges       ;; the list of lends and debts
+  sugar           ;; the amount of sugar this turtle has                                                          type: int
+  metabolism      ;; the amount of sugar that each turtles loses each tick                                        type: int
+  vision          ;; the distance that this turtle can see in the horizontal and vertical directions              type: int
+  vision-points   ;; the points that this turtle can see in relative to it's current position (based on vision)   type: list
+  age             ;; the current age of this turtle (in ticks)                                                    type: int
+  max-age         ;; the age at which this turtle will die of natural causes                                      type: int
+  increased       ;; the amount of sugar that the metabolism increased                                            type: int
+  credit-history  ;; the list of lends and debts                                                                  type: list
 ]
 
 patches-own [
-  psugar           ;; the amount of sugar on this patch
-  max-psugar       ;; the maximum amount of sugar that can be on this patch
+  psugar           ;; the amount of sugar on this patch                           type: int
+  max-psugar       ;; the maximum amount of sugar that can be on this patch       type: int
 ]
 
 ;;
@@ -38,23 +36,33 @@ patches-own [
 to setup
   py:setup py:python3                                   ;; use python3
   py:run "import random"
+
+  ;; check if the values given are valid
   if maximum-sugar-endowment <= minimum-sugar-endowment [
     user-message "Oops: the maximum-sugar-endowment must be larger than the minimum-sugar-endowment"
     stop
   ]
+
+  ;; clean environment
   clear-all
-  create-turtles initial-population [ turtle-setup -1 ]
+
   ;; setup-patches
-  ask patches [ set pcolor 28]
+  create-turtles initial-population [ turtle-setup -1 ]
+  ask patches [ set pcolor 28 ]
+
+  ;; gini coefficient initial value
   update-lorenz-and-gini
+
+  ;; start ticks
   reset-ticks
-  ;;set delay 1
+
+  ;; initial values
   set inbox []
+  set proposals-exchanged []
+  set payments []
   set sugar-exchange 0
   set sugar-paid 0
   set deaths 0
-  set proposals-exchanged []
-  set paybacks []
 end
 
 to turtle-setup [inherit_sugar] ;; turtle procedure
@@ -67,7 +75,7 @@ to turtle-setup [inherit_sugar] ;; turtle procedure
   set age 0
   set vision random-in-range 1 6
   set increased 0
-  set exchanges []
+  set credit-history []
   ;; turtles can look horizontally and vertically up to vision patches
   ;; but cannot look diagonally at all
   set vision-points []
@@ -94,68 +102,67 @@ end
 ;;
 
 to go
+  ;; reset values for each tick
   set deaths 0
+  set sugar-paid 0
+  set sugar-exchange 0
+  set proposals-exchanged []
+  set payments []
+
   if not any? turtles [
     stop
   ]
-  ;; not required now
-  ;;if delay mod 12 = 0 [
-    ;;set sugar-predict py:runresult "random.choices([1,-1], [0.431034483, 0.568965517])[0]"  ;; grow or decrease sugar
-  ;;]
-  ;;ask patches [
-  ;;    patch-growback
-  ;;    patch-recolor
-  ;;]
-  show "Hacer propuestas"
-  ask turtles [
-    ;; if the turtle lives for the next tick, it can exchange
-    if allow-exchanges[
+
+  ;; this only executes if the exchanges are enabled
+  if allow-exchanges[
+    ;; every turtle makes a proposal or pay their credits
+    ask turtles [
       turtle-proposals
+    ]
+
+    ;; if any turtle pay their credits, the sugar is sent to the lender
+    if length payments != 0 [
+      pay-turtles
+    ]
+
+    ;; the exchanges are made depending on the proposals made
+    if length inbox != 0 [
+      ;; exchanges are made
+      make-exchanges
+      ;; update credit history for each turtle that took a credit
+      turtle-credit
     ]
   ]
 
-  show "Hacer pagos"
-  if length paybacks != 0 and allow-exchanges [
-    pay-turtles
-  ]
-
-  show "Hacer intercambios"
-  ;; exchanges first as long as it is not empty
-  if length inbox != 0 and allow-exchanges [
-    make-matches
-  ]
-
-  ;; updates second
-  show "Actualizar historial"
+  ;; update turtle values
   ask turtles [
-    turtle-history
-    ifelse sugar >= 50 and allow-money-grow[
+    ;; if the turtle has enough money, its money will start growing and that'd require that it's metabolism increases
+    ;; else the turtle would just move and consume sugar
+    ifelse sugar >= 50 and allow-money-grow [
       set sugar sugar - metabolism - increased + random-in-range 1 3
       if increased != 1 [ set increased random-in-range 1 2 ]
-
     ]
     [
       turtle-move
       turtle-eat
     ]
-    set age (age + 1)
 
+    ;; the turtle ages and if reaches its life expectancy, it'll die and left a heir
+    ;; if heritance enabled, the new turtle will inherit its parent sugar
+    set age (age + 1)
     if sugar <= 0 or age > max-age [
       hatch 1 [ turtle-setup sugar ]
       set deaths deaths + 1
       die
     ]
+
     run visualization
   ]
 
-  set proposals-exchanged []
-
-  ;; update credit history
-  if allow-exchanges[
-    ;;update-history
-  ]
-
+  ;; update gini coefficient
   update-lorenz-and-gini
+
+  ;; go next tick
   tick
 end
 
@@ -172,51 +179,64 @@ end
 to turtle-eat ;; turtle procedure
   ;; metabolize some sugar, and eat all the sugar on the current patch
   set sugar (sugar - metabolism)
-  ;;set psugar 0
 end
 
 to turtle-proposals ;; turtle procedure
-  ;; send proposals
-  let amount (sugar - (metabolism * 10))                                       ;; difference
+  ;; this difference shows how many sugar can lend or need to meet its wellbeing
+  let amount (sugar - (metabolism * 10))
 
+  ;; if the turtle is not in equilibrium it'll opt to lend or take credit, depending on its possibility
   if amount != 0 [
-    ifelse amount > 0 [
-      ;; check if debt and pay
-      if length exchanges != 0 [
-        set exchanges sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] exchanges ;; sorted oldest-first
-        let unpaid []                                                          ;; to save those that remained unpaid
 
-        foreach exchanges [
+    ;; if wealthy, the turtle can lend sugar to increase its wealth
+    ifelse amount > 0 [
+
+      ;; but first the sugar most get rid of its credits
+      if length credit-history != 0 [
+        ;; the credit is order from oldest to newest
+        set credit-history sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] credit-history
+        let unpaid []
+
+        foreach credit-history [
+
+          ;; if the turtle has enough sugar to pay its credits, it'll pay as many as it can
           m -> ifelse turtle (item 0 m) != nobody and amount >= ((item 1 m) + (ticks - (item 3 m)) * (item 2 m))[
             set sugar sugar - ((item 1 m) + (ticks - (item 3 m) * (item 2 m)))
             set amount amount - ((item 1 m) + (ticks - (item 3 m) * (item 2 m)))
-            set paybacks lput (list (item 0 m) ((item 1 m) + (ticks - (item 3 m)) * (item 2 m))) paybacks
+
+            ;; add the payment to the communal list for the lender to get its sugar back plus interests
+            set payments lput (list (item 0 m) ((item 1 m) + (ticks - (item 3 m)) * (item 2 m))) payments
           ]
           [
+            ;; if the lender is still alive, the credit is active
             if turtle (item 0 m) != nobody [ set unpaid lput m unpaid]
           ]
         ]
 
-        set exchanges unpaid
+        ;; the credits that left unpaid
+        set credit-history unpaid
       ]
 
+      ;; if sugar left, the turtle may lend some
       if amount > 0 [
         ;; offer lending
         set inbox lput (list ticks who 0 amount (random-in-range 1 3)) inbox   ;; the max of lending amount
       ]
     ]
     [
-      ;; take debt
+      ;; if the turtle doesn't meet the minimun spending for the next ticks, it needs to take credit
       set inbox lput (list ticks who 1 ((amount + 1) * -1)) inbox   ;; the min of debt taking
     ]
   ]
 end
 
-to turtle-history ;; turtle procedure
-  ;; check if exchanges, only debt taking is saved
-  foreach proposals-exchanged[
-    p -> if (item 0 p) = who [
-      set exchanges lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p)) exchanges
+to turtle-credit ;; turtle procedure
+  ;; if any exchange was made, the new debtors will add the exchange to its credit history to pay it later
+  ask turtles [
+    foreach proposals-exchanged[
+      p -> if (item 0 p) = who [
+        set credit-history lput (list (item 1 p) (item 2 p) (item 3 p) (item 4 p)) credit-history
+      ]
     ]
   ]
 end
@@ -261,94 +281,62 @@ end
 
 ;; pay debts
 to pay-turtles
-  set sugar-paid 0
-  foreach paybacks [
+  foreach payments [
     m -> ask turtle (item 0 m) [
       set sugar sugar + (item 1 m)
       set sugar-paid sugar-paid + (item 1 m)
     ]
   ]
-  set paybacks []
 end
 
 ;; exchange of sugar
-to make-matches
-  set sugar-exchange 0
+to make-exchanges
+  ;; the list for each type of proposal and a useful list
   let lending []
   let debt []
+  let agents []
 
   ;; clean messages and separate by type
   foreach inbox[
-    ;; verify if not expired
-    ;; then separete between the two lists
-    ;; save only turtle and amount
+
+    ;; verify if the proposal is not expired of the turtle has die, then separate between lending and credit
+    ;; leave only one proposal per turtle
     m -> if length m != 0 [
       if ticks - (item 0 m) <= 2 and (turtle (item 1 m)) != nobody [
-        ifelse (item 2 m) = 0 [
-          ;; lending offer
-          set lending lput m lending
-        ]
-        [
-          ;; debt taking
-          set debt lput m debt
-        ]
+        ifelse (item 2 m) = 0
+        [ if not member? (item 1 m) agents [set lending lput m lending set agents lput m agents]]
+        [ if not member? (item 1 m) agents[ set debt lput m debt set agents lput m agents] ]
       ]
     ]
   ]
 
-  ;; matching
+  ;; if both lists are non-empty then they can exchange :)
   if length lending != 0 and length debt != 0 [
-    ;; remove repeated agents
-    let agents []
-    let tempo []
-
-    foreach debt [
-      d -> if not member? (item 1 d) agents[
-        ;; if not in agents, save who # and the proposal for later
-        set agents lput (item 1 d) agents
-        set tempo lput d tempo
-      ]
-    ]
-
-    ;; save the filtered proposals and free tempo
-    set debt tempo
-    set tempo []
-
-    foreach lending [
-      l -> if not member? (item 1 l) agents[
-        ;; if not in agents, save who # and the proposal for later
-        set agents lput (item 1 l) agents
-        set tempo lput l tempo
-      ]
-    ]
-
-    ;; save the filtered proposals and free tempo
-    set lending tempo
-
-    ;; sort descending by amount
+    ;; sort descending by amount, smaller first
     set lending sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)] lending
     set debt sort-by [[m1 m2] -> (item 3 m1) > (item 3 m2)]  debt
 
-    set tempo []
+    let tempo []
+
     ;; match time!
+    ;; debt has preference as they need exactly what they ask, no more, no less
+    ;; lenders don't care about how much they lend as long as they do so
+
     foreach debt[
       ;; it'll find the first best option in the lending list
       d ->
       let best []
-      let notfound true
       let index 0
 
       ;; while not a best or still an index valid
-      while [notfound and index < length lending][
+      while [length best = 0 and index < length lending][
         ;; if the current proposal offers at least the same as de sugar ask, take it
-        if (item 3 (item index lending)) >= (item 3 d)[
-          set notfound false
-          set best (item index lending)
-        ]
+        if (item 3 (item index lending)) >= (item 3 d)[ set best (item index lending) ]
         set index index + 1
       ]
 
       ifelse length best != 0 [
+
         ;; if one best, the proposal is deleted as it is used
         set lending remove-item (index - 1) lending
         set sugar-exchange sugar-exchange + (item 3 d)
@@ -357,18 +345,14 @@ to make-matches
         sugar-update (item 1 best) (-1)*(item 3 d)
         sugar-update (item 1 d) (item 3 d)
 
-        ;; save the exchanges
+        ;; save the exchange
         set proposals-exchanged lput (list (item 1 d) (item 1 best) (item 3 d) (item 4 best) ticks) proposals-exchanged
       ]
-      [
-        ;; if no best, it is saved to be used in another tick
-        set tempo lput d tempo
-      ]
+      ;; if no best, it is saved to be used in another tick
+      [ set tempo lput d tempo ]
     ]
     ;; update lending with the left proposals
-    if length tempo != 0[
-      set lending tempo
-    ]
+    if length tempo != 0 [ set lending tempo ]
   ]
 
   ;; save the left proposals
@@ -517,7 +501,7 @@ initial-population
 initial-population
 10
 1000
-320.0
+600.0
 10
 1
 NIL
@@ -640,7 +624,7 @@ allow-exchanges
 SWITCH
 160
 145
-307
+295
 178
 allow-inheritance
 allow-inheritance
@@ -655,14 +639,14 @@ SWITCH
 218
 allow-money-grow
 allow-money-grow
-1
+0
 1
 -1000
 
 PLOT
 955
 10
-1155
+1165
 140
 Sugar paid back
 NIL
@@ -720,6 +704,7 @@ Lourdes
 Update:
 
 * The metabolism grows only once.
+* There's no negative wealth
 
 ## WHAT IS IT?
 
